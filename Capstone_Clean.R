@@ -15,7 +15,7 @@
 # and save these in new files, to use in our future models
 
 # Set the working directory and open connection to file, then read it
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+setwd("C:/Users/dal/Biosyntia/Admin - David Lennox-Hvenekilde/Bioinformatics and data science/Courses/Data Science in R/Capstone/RdatascienceCapstone")
 con <- file("./Coursera-SwiftKey/final/en_US/en_US.twitter.txt")
 en_US.twitter <- readLines(con)
 close(con)
@@ -27,6 +27,11 @@ setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 con <- file("./Coursera-SwiftKey/final/en_US/en_US.blogs.txt")
 en_US.blogs <- readLines(con)
 close(con)
+
+en_US.twitter[1]
+length(en_US.twitter)
+en_US.blogs[1]
+en_US.news[1]
 
 # Random sampling
 set.seed(98631)
@@ -63,3 +68,5 @@ en_US.blogs_random$Line <- 1:nrow(en_US.blogs_random)
 
 en_US.all <- rbind(en_US.twitter_random, en_US.news_random, en_US.blogs_random)
 write.csv(en_US.all, "./ReducedData/en_US.all.csv")
+class(en_US.all)
+head(en_US.all)

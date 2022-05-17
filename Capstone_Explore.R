@@ -28,7 +28,16 @@ en_US.all.nonstop <- en_US.all.token %>% anti_join(stop_words)
 en_US.all.wordcount <- en_US.all.token %>% count(word, sort = TRUE) 
 en_US.all.nonstop.wordcount <- en_US.all.nonstop %>% count(word, sort = TRUE) 
 
-# Compare frequencies based on source (Src)
+top5all <- en_US.all.wordcount[1:5,]
+top5all$freq <- top5all$n/nrow(en_US.all.token)
+
+top5nonstop <- en_US.all.nonstop.wordcount[1:5,]
+top5nonstop$freq <- top5nonstop$n/nrow(en_US.all.nonstop)
+
+
+
+
+ # Compare frequencies based on source (Src)
 # We use the dataset WITHOUT stopwords as it is more interesting to compare these
 frequency <- bind_rows(mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.twitter",], source = "en_US.twitter"),
                        mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.news",], source = "en_US.news"), 
@@ -47,12 +56,12 @@ frequency <- bind_rows(mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.
 p<-ggplot(data=en_US.all.nonstop.wordcount[1:20,], aes(x=reorder(word, -n), y=n)) +
       geom_bar(stat="identity") +
       labs(x = "Word",
-           y = "Occurance (n)")
+           y = "Occurance (n)")+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 p
 
 # Histogram of word frequency
 hist(log10(en_US.all.nonstop.wordcount$n),breaks = 15)
-
 
 # Comparing word frequency from the 3 different sources
 library(scales)

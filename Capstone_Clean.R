@@ -35,9 +35,9 @@ en_US.news[1]
 
 # Random sampling
 set.seed(98631)
-random_set1 <- sample(1:length(en_US.twitter), size = 5000, replace = FALSE)
-random_set2 <- sample(1:length(en_US.news), size = 5000, replace = FALSE)
-random_set3 <- sample(1:length(en_US.blogs), size = 5000, replace = FALSE)
+random_set1 <- sample(1:length(en_US.twitter), size = 0.20*length(en_US.twitter), replace = FALSE)
+random_set2 <- sample(1:length(en_US.news), size = 0.20*length(en_US.news), replace = FALSE)
+random_set3 <- sample(1:length(en_US.blogs), size = 0.20*length(en_US.blogs), replace = FALSE)
 
 # Read the random samples lines into a new vector
 library(tibble)
@@ -67,6 +67,32 @@ en_US.blogs_random$Src <- "en_US.blogs"
 en_US.blogs_random$Line <- 1:nrow(en_US.blogs_random)
 
 en_US.all <- rbind(en_US.twitter_random, en_US.news_random, en_US.blogs_random)
-write.csv(en_US.all, "./ReducedData/en_US.all.csv")
+write.csv(en_US.all, "./ReducedData/en_US.allv2.csv")
 class(en_US.all)
 head(en_US.all)
+
+
+
+
+
+
+# TEST DATA
+set.seed(98631)
+random_set1 <- sample(1:length(en_US.twitter), size = 0.20*length(en_US.twitter), replace = FALSE)
+random_set2 <- sample(1:length(en_US.news), size = 0.20*length(en_US.news), replace = FALSE)
+random_set3 <- sample(1:length(en_US.blogs), size = 0.20*length(en_US.blogs), replace = FALSE)
+
+en_US.twitter_random <- tibble(txt = en_US.twitter[!(1:length(en_US.twitter)%in%random_set1)])
+en_US.news_random<- tibble(txt = en_US.news[!(1:length(en_US.news)%in%random_set1)])
+en_US.blogs_random <- tibble(txt = en_US.blogs[!(1:length(en_US.blogs)%in%random_set3)])
+
+en_US.twitter_random$Src <- "en_US.twitter"
+en_US.twitter_random$Line <- 1:nrow(en_US.twitter_random)
+en_US.news_random$Src <- "en_US.news"
+en_US.news_random$Line <- 1:nrow(en_US.news_random)
+en_US.blogs_random$Src <- "en_US.blogs"
+en_US.blogs_random$Line <- 1:nrow(en_US.blogs_random)
+
+en_US.all <- rbind(en_US.twitter_random, en_US.news_random, en_US.blogs_random)
+write.csv(en_US.all, "./ReducedData/en_US.all.TEST.csv")
+en_US.all.token <- en_US.all %>% unnest_tokens(word, txt)

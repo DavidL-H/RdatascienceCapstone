@@ -14,7 +14,7 @@ library(tidyr)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 # Read data in
-en_US.all <- read.csv("./ReducedData/en_US.all.csv", row.names = 1)
+en_US.all <- read.csv("./ReducedData/en_US.allv2.csv", row.names = 1)
 
 # Tokenize words
 en_US.all.token <- en_US.all %>% unnest_tokens(word, txt)
@@ -90,8 +90,8 @@ en_US.all.2gram <- en_US.all %>%
 en_US.all.3gram <- en_US.all %>% 
       unnest_tokens(trigram, txt, token = "ngrams", n = 3) %>% 
       separate(trigram, c("word1", "word2", "word3"), sep = " ")
-en_US.all.4gram <- en_US.all %>% 
-      unnest_tokens(quadgram, txt, token = "ngrams", n = 4) %>% 
+en_US.all.4gram <- en_US.all %>%
+      unnest_tokens(quadgram, txt, token = "ngrams", n = 4) %>%
       separate(quadgram, c("word1", "word2", "word3", "word4"), sep = " ")
 
 # Takes too long to run
@@ -100,3 +100,6 @@ en_US.all.4gram <- en_US.all %>%
 
 # Model building
 
+write.csv(en_US.all.2gram, "./ReducedData/enUSall2gram.csv")
+write.csv(en_US.all.3gram, "./ReducedData/enUSall3gram.csv")
+write.csv(en_US.all.4gram, "./ReducedData/enUSall4gram.csv")

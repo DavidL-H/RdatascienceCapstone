@@ -1,0 +1,239 @@
+---
+title: 'Capstone: Milestone Report'
+author: "David Lennox-Hvenekilde"
+date: "17/5/2022"
+output: html_document
+---
+
+## Document setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tibble)
+library(tidytext)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
+library(scales)
+set.seed(98631)
+```
+
+## Coursera Swift-key data
+### Part 1 - Read in and clean the data
+The Swift-key dataset (corpora) is comprised of web-scraped text from blogs, news and Twitter, in four languages: English, German, Finnish, and Russian. For this initial Miletsone report, I will only include the English language data, in order to simplify things.
+```{r enlang, message=FALSE, warning=FALSE, cache=TRUE}
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.twitter.txt")
+en_US.twitter <- readLines(con)
+close(con)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.news.txt")
+en_US.news <- readLines(con)
+close(con)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.blogs.txt")
+en_US.blogs <- readLines(con)
+close(con)
+```
+
+Lets have a look at the size of the different files and preview the first lines of each dataset.
+```{r preview}
+length(en_US.twitter)
+en_US.twitter[1]
+length(en_US.blogs)
+en_US.blogs[1]
+length(en_US.news)
+en_US.news[1]
+```
+The data seems to comprise very large numbers of individual lines of text. The US.twitter dataset is the larges and the US.news is the smallest in terms of number of lines. In order to reduce the dataset a big, we will randomly take 5000 lines from each dataset:
+
+```{r sample}
+random_set1 <- sample(1:length(en_US.twitter), size = 5000, replace = FALSE)
+random_set2 <- sample(1:length(en_US.news), size = 5000, replace = FALSE)
+random_set3 <- sample(1:length(en_US.blogs), size = 5000, replace = FALSE)
+en_US.twitter_random <- tibble(txt = en_US.twitter[random_set1])
+en_US.news_random<- tibble(txt = en_US.news[random_set2])
+en_US.blogs_random <- tibble(txt = en_US.blogs[random_set3])
+```
+To clean it up, I will create a single tidy long-format tibble with all lines and their source in a separate column:
+
+```{r clean}
+en_US.twitter_random$Src <- "en_US.twitter"
+en_US.twitter_random$Line <- 1:nrow(en_US.twitter_random)
+en_US.news_random$Src <- "en_US.news"
+en_US.news_random$Line <- 1:nrow(en_US.news_random)
+en_US.blogs_random$Src <- "en_US.blogs"
+en_US.blogs_random$Line <- 1:nrow(en_US.blogs_random)
+
+en_US.all <- rbind(en_US.twitter_random, en_US.news_random, en_US.blogs_random)
+head(en_US.all)
+```
+
+### Part 2 - Exploring the data
+Here I take an approach inspired by the [tidytext package](https://www.tidytextmining.com/tidytext.html). 
+To explore the data, we first tokenize the by words, i.e. we generate a new table where every row corresponds to a single word, rather than a line, which can be easily done with the aforementioned package.
+We also create a subset of the data without stopwords. Stop words that are extremely common words such as “the”, “of”, “to”, in English. These are present in the tidytext dataset 'stop_words', so they can easily be removed after tokenizing:
+
+#### Tokenizing
+```{r tokenize}
+en_US.all.token <- en_US.all %>% unnest_tokens(word, txt)
+stop_words <- tidytext::stop_words
+en_US.all.nonstop <- en_US.all.token %>% anti_join(stop_words)
+```
+
+#### Word (token) frequencies
+To get an idea of the counts and requencies of the words in the corpora, we can count the tokenized words and calculate their frequencies, for both the full and the non-stop words data sets:
+```{r counts, cache=TRUE}
+en_US.all.wordcount <- en_US.all.token %>% count(word, sort = TRUE) 
+en_US.all.nonstop.wordcount <- en_US.all.nonstop %>% count(word, sort = TRUE) 
+
+top5all <- en_US.all.wordcount[1:5,]
+top5all$freq <- top5all$n/nrow(en_US.all.token)
+
+top5nonstop <- en_US.all.nonstop.wordcount[1:5,]
+top5nonstop$freq <- top5nonstop$n/nrow(en_US.all.nonstop)
+```
+
+```{r countstable, echo=FALSE, results="asis"}
+kable(top5all, caption = "Table 1: Top 5 words in corpora")
+```
+```{r countstable2, echo=FALSE, results="asis"}
+kable(top5nonstop, caption = "Table 2: Top 5 words in corpora (exluding stop words)")
+```
+```{r freqPlot, fig.cap = "Figure 1: Occurances of 20 most common non-stop words in corpora"}
+p<-ggplot(data=en_US.all.nonstop.wordcount[1:20,], aes(x=reorder(word, -n), y=n)) +
+      geom_bar(stat="identity") +
+      labs(x = "Word",
+           y = "Occurance (n)")+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p
+```
+Unsurprisingly, when not removing stop words, the most frequent words are "the", "to", "and", etc.
+
+#### Comparing relative frequencies between the sources.
+It may also be of interest to see what the relative frequencies of words are between the three sources of the corpora (Twitter, News, Blogs). We will use the data set with stop words removed, as this is more interesting to compare. Here we normalize the frequencies by Twitter and compare the frequencies of word in the Twitter tokens to those in the News and Blogs.
+```{r relativeFreq, cache=TRUE}
+frequency <- bind_rows(mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.twitter",], source = "en_US.twitter"),
+                       mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.news",], source = "en_US.news"), 
+                       mutate(en_US.all.nonstop[en_US.all.nonstop$Src == "en_US.blogs",], source = "en_US.blogs")) %>% 
+      mutate(word = str_extract(word, "[a-z']+")) %>%
+      count(source, word) %>%
+      group_by(source) %>%
+      mutate(proportion = n / sum(n)) %>% 
+      select(-n) %>% 
+      pivot_wider(names_from = source, values_from = proportion) %>%
+      pivot_longer(`en_US.news`:`en_US.blogs`,
+                   names_to = "source", values_to = "proportion")
+```
+
+```{r relativeFreqPlot, echo=FALSE, results="asis", message=FALSE, warning=FALSE}
+ggplot(frequency, aes(x = proportion, y = `en_US.twitter`, 
+                      color = abs(`en_US.twitter` - proportion))) +
+      geom_abline(color = "gray40", lty = 2) +
+      geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+      geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+      scale_x_log10(labels = percent_format()) +
+      scale_y_log10(labels = percent_format()) +
+      scale_color_gradient(limits = c(0, 0.001), 
+                           low = "darkslategray4", high = "gray75") +
+      facet_wrap(~source, ncol = 2) +
+      theme(legend.position="none") +
+      labs(y = "en_US.twitter", x = NULL)
+```
+There are some interesting differenes between words usage in the three different sources. The most notable difference is the more frequenc use of slang, like "haha" and "lol" in Twitter
+
+### Part 3 - Getting started on modelling
+The easiest way to get started on modelling of the data and creating a prediction algorithm is to convert the data into n-grams. In this case 2, 3 and 4-grams.
+```{r ngram, cache=TRUE}
+en_US.all.2gram <- en_US.all %>% 
+      unnest_tokens(bigram, txt, token = "ngrams", n = 2) %>% 
+      separate(bigram, c("word1", "word2"), sep = " ")
+en_US.all.3gram <- en_US.all %>% 
+      unnest_tokens(trigram, txt, token = "ngrams", n = 3) %>% 
+      separate(trigram, c("word1", "word2", "word3"), sep = " ")
+en_US.all.4gram <- en_US.all %>% 
+      unnest_tokens(quadgram, txt, token = "ngrams", n = 4) %>% 
+      separate(quadgram, c("word1", "word2", "word3", "word4"), sep = " ")
+```
+These can relatively easily be used to predict the next word in a sentence, based on either the previous 3, 2 or 1 word. Below is a simple prediction function:
+
+```{r ngramPredict}
+predict.next.word <- function(sentence){
+      # tokenize sentence
+      if (str_count(sentence, '\\w+') > 1){
+            sentence <- data.frame(txt = sentence)
+            sentence <- sentence %>% unnest_tokens(word, txt)
+            sentence <- sentence[(nrow(sentence)-2):nrow(sentence),1] 
+      }
+      
+      # predict
+      if (length(sentence) == 3){
+            gramhit <- en_US.all.4gram %>% filter(word1 == sentence[1], word2 == sentence[2], word3 == sentence[3]) %>% 
+                  count(word4) %>%
+                  slice_max(n,n=3, with_ties = FALSE)
+            if (is.na(gramhit[1,1])){
+                  sentence <- sentence[-1]
+            }
+      }
+      if ((length(sentence) == 2)){
+            gramhit <- en_US.all.3gram %>% filter(word1 == sentence[1], word2 == sentence[2]) %>% 
+                  count(word3) %>%
+                  slice_max(n, n=3, with_ties = FALSE)
+            
+            if (is.na(gramhit[1,1])){
+                  sentence <- sentence[-1]
+            }
+      }
+      
+      if (length(sentence) == 1){
+            gramhit <- en_US.all.2gram %>% filter(word1 == sentence[1]) %>% 
+                  count(word2) %>%
+                  slice_max(n, n=3, with_ties = FALSE)
+}
+return(as.data.frame(gramhit))
+}
+```
+With this very simple function, we can predict the next word in a sentence relatively fast:
+
+
+```{r ngramPredictTest1}
+start_time <- Sys.time()
+predict.next.word("This model is fast but it take up too much RAM, so I will")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r ngramPredictTest2}
+start_time <- Sys.time()
+predict.next.word("Then we can")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r ngramPredictTest3}
+start_time <- Sys.time()
+predict.next.word("I should")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r ngramPredictTest4}
+start_time <- Sys.time()
+predict.next.word("should")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+This prediction algorithm is not too large, taking up 63.6 MB, but maybe it can be sped up a bit.
+```{r modelsize}
+# The model takes way too much RAM
+object.size(en_US.all.2gram)
+object.size(en_US.all.3gram)
+object.size(en_US.all.4gram)
+# The total ram used by these objects is 16.4+21.3+25.9 = 63.6 MB
+```
+
+The main disadvantage currently, is that it cannot deal with predictions that are not in the corpora of n-grams
+```{r badpredict}
+predict.next.word("This doesn't work for words not in the corpora")
+```

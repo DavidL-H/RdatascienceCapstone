@@ -81,12 +81,16 @@ for (n in 1:nrow(en_US.all.3gram.Test)){
 }
 
 
-write.csv(en_US.all.3gram.Test[1:10000,],file = "./ReducedData/en_US.all.3gram.Test.Model2.csv")
-en_US.all.3gram.Test <- en_US.all.3gram.Test[1:10000,]
+#write.csv(en_US.all.3gram.Test[1:10000,],file = "./ReducedData/en_US.all.3gram.Test.Model2.csv")
+#en_US.all.3gram.Test <- en_US.all.3gram.Test[1:10000,]
+
+en_US.all.3gram.Test <- read.csv("ReducedData/en_US.all.3gram.Test.Model2.csv")
 
 # How many predictions were true?
 nrow(en_US.all.3gram.Test[en_US.all.3gram.Test$Correct == TRUE,])
 # How many had no valid predictions?
 nrow(en_US.all.3gram.Test[!is.na(en_US.all.3gram.Test$word1),])
+
+
 object.size(en_US.all.3gram.freq)
 object.size(en_US.all.2gram.freq)

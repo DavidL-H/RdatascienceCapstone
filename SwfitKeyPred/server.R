@@ -13,7 +13,7 @@ library(stringr)
 library(tidyr)
 
 # Read the model data and define the prediction model function
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 en_US.all.2gram.freq <- read.csv("./FinalModelData/en_US.all.2gram.freq.final.csv")
 en_US.all.3gram.freq <- read.csv("./FinalModelData/en_US.all.3gram.freq.final.csv")
 predict.next.word <- function(sentence){

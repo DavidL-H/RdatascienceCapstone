@@ -1,0 +1,95 @@
+---
+title: "Data Science Capstone - SwiftKey prediction"
+author: "David Lennox-Hvenekilde"
+date: "220608"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+# Setup the document with the needed libraries.
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(tibble)
+library(tidytext)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(tidyr)
+set.seed(98631)
+```
+## Project introduction
+In this project we develop a predictive model of text using a text data-set (corpus) provided by Swiftkey. Some of the R code in this .rmd presentation is hidden for simplicity, but all output is reproducible with the source-code of this presentation, available here: [github.com/DavidL-H/RdatascienceCapstone](https://github.com/DavidL-H/RdatascienceCapstone). This text data is scraped from 3 source: News, Blogs, and Twitter. Lets have a look:
+```{r enlang, message=FALSE, warning=FALSE, cache=TRUE}
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.twitter.txt")
+en_US.twitter <- readLines(con)
+close(con)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.news.txt")
+en_US.news <- readLines(con)
+close(con)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+con <- file("./Coursera-SwiftKey/final/en_US/en_US.blogs.txt")
+en_US.blogs <- readLines(con)
+close(con)
+```
+```{r preview}
+kable(data.frame(Source=c("en_US.twitter.txt","en_US.news.txt","en_US.blogs.txt"),Lines=c(length(en_US.twitter),length(en_US.blogs),length(en_US.news)), Preview = c(substr(en_US.twitter[1],1,40),substr(en_US.blogs[1],1,40),substr(en_US.news[1],1,40))), caption = "Table 1: Switfkey training data")
+```
+
+## Model choice and data preparation
+First the we generated a training dataset of 20% of all lines randomly chosen from each of the 3 sources. We decided to use the a modelling approach described by [Dean et al. (2007)](https://aclanthology.org/D07-1090.pdf). This requires [ngram tokenization](https://en.wikipedia.org/wiki/N-gram) of the training data. We transformed the training data into all 2-gram and all 3-grams using the package [tidytext](https://www.rdocumentation.org/packages/tidytext/versions/0.3.3).
+
+
+```{r random, message=FALSE, warning=FALSE, cache=TRUE}
+set.seed(98631)
+random_set1 <- sample(1:length(en_US.twitter), size = 0.20*length(en_US.twitter), replace = FALSE)
+random_set2 <- sample(1:length(en_US.news), size = 0.20*length(en_US.news), replace = FALSE)
+random_set3 <- sample(1:length(en_US.blogs), size = 0.20*length(en_US.blogs), replace = FALSE)
+en_US.twitter_random <- tibble(txt = en_US.twitter[!(1:length(en_US.twitter)%in%random_set1)])
+en_US.news_random<- tibble(txt = en_US.news[!(1:length(en_US.news)%in%random_set1)])
+en_US.blogs_random <- tibble(txt = en_US.blogs[!(1:length(en_US.blogs)%in%random_set3)])
+
+en_US.twitter_random$Src <- "en_US.twitter"
+en_US.twitter_random$Line <- 1:nrow(en_US.twitter_random)
+en_US.news_random$Src <- "en_US.news"
+en_US.news_random$Line <- 1:nrow(en_US.news_random)
+en_US.blogs_random$Src <- "en_US.blogs"
+en_US.blogs_random$Line <- 1:nrow(en_US.blogs_random)
+
+en_US.all <- rbind(en_US.twitter_random, en_US.news_random, en_US.blogs_random)
+```
+```{r ngram, cache=TRUE, eval=FALSE, message=FALSE}
+# Here we create ngrams and save them. RUNNING THIS TAKES A LONG TIME.
+library(tidytext)
+en_US.all.2gram <- en_US.all %>% 
+      unnest_tokens(bigram, txt, token = "ngrams", n = 2) %>% 
+      separate(bigram, c("word1", "word2"), sep = " ")
+en_US.all.3gram <- en_US.all %>% 
+      unnest_tokens(trigram, txt, token = "ngrams", n = 3) %>% 
+      separate(trigram, c("word1", "word2", "word3"), sep = " ")
+# Save them for future use
+write.csv(en_US.all.2gram, "./ReducedData/enUSall2gram.csv")
+write.csv(en_US.all.3gram, "./ReducedData/enUSall3gram.csv")
+```
+
+
+
+```{r ngram_preview, echo=TRUE, eval=TRUE, cache = TRUE}
+en_US.all.2gram <- read.csv("./ReducedData/enUSall2gram.csv")
+en_US.all.3gram <- read.csv("./ReducedData/enUSall3gram.csv")
+head(en_US.all.3gram,3)
+```
+
+## The predictive algorithm/model
+<font size="3">The predictive algorithm was build using a Markov chain n-gram model, with a simple back-off. Several models were evaluated, initially the raw 2 and 3-gram tables were used (previous slide), but predictions were too slow. Smoothing was also attempted, but storing smoothed frequencies took too much space and increased prediction time. In the end the training data was reduced significantly and no smoothing was included, if a prediction does not appear in the 2 or 3-gram training data, the model backs off to the top 3 most frequent unigrams (e.i. words) in the test data. Low freqency ngrams (n < 3) were removed and frequencies for each ngram were counted and only the top 3 most frequent hits were stored. This significantly reduced the size needed to store the model (see table), and algorithm speed.</font>
+```{r ngramfreq, echo=FALSE, eval=TRUE, cache = TRUE,size=2}
+en_US.all.2gram.freq <- read.csv("./FinalModelData/en_US.all.2gram.freq.final.csv")
+en_US.all.3gram.freq <- read.csv("./FinalModelData/en_US.all.3gram.freq.final.csv")
+```
+```{r sizetable}
+kable(data.frame(ModelFile=c("en_US.all.2gram","en_US.all.3gram","en_US.all.2gram.freq","en_US.all.3gram.freq"),Size_bytes=c(object.size(en_US.all.2gram),object.size(en_US.all.3gram),object.size(en_US.all.2gram.freq),object.size(en_US.all.3gram.freq))))
+```
+
+## Shiny App - Prediction product
+[https://davidlh.shinyapps.io/SwfitKeyPredCapstone/](https://davidlh.shinyapps.io/SwfitKeyPredCapstone/). The model has been put into production as a minimal viable product, using a Shiny App hosted on shinyapps.io. The model only takes up around ~30 MB of RAM and all predictions are made in < 20 milliseconds. The dashboard is very intuitive. Simply enter text into the text prompt. The algorithm will predict the next word using the backoff model described in the previous slide. For each prediction the user will be presented with 3 buttons, showing 3 choices, much like you would be when using a predictive keyboard on a mobile device. The user can then choose one of the three predicted words, or if the prediction does not fit, continue typing. The App additionally show computation time for each prediction, and also shows what is happening in the back-end, by displaying the frequency table used in the predictive algorithm.
+
